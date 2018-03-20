@@ -41,19 +41,31 @@ dy = Sy/Ny;
 ya = [0 : Ny-1]*dy; ya = ya - mean(ya);
 
 % COMPUTE START AND STOP INDICES
-x1 = ceil((Sx-w)/2/dx);
-x2 = Nx - x1;
-y1 = ceil((Sy-w)/2/dy);
-y2 = Ny - y1;
+x1 = ceil((Sx-w)/2/dx) + 1;
+x2 = Nx - x1 + 1;
+y1 = ceil((Sy-w)/2/dy) + 1;
+y2 = Ny - y1 + 1;
 
 % FILL CLOAK
 CLOAK = zeros(Nx,Ny);
 CLOAK(x1:x2,y1:y2) = 1;
 
 % VISUALIZE CLOAK
-imagesc(xa,ya,CLOAK');
+a = imagesc(xa,ya,CLOAK');
+a = get(a,'Parent');
+set(a,'FontSize',10);
+T = [-0.5 : 0.25 : +0.5];
+L = {};
+for n = 1 : length(T)
+    L{n} = num2str(T(n),'%1.2f');
+end
+L{3} = 0;
+set(a,'XTick',T,'XTickLabel',L,'YTick',T,'YTickLabel',L);
 colormap('gray');
 axis equal tight
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+title('CLOAK','FontSize',14,'FontWeight','Bold');
 
 % COMPUTE START AND STOP INDICES
 OBJECT = zeros(Nx,Ny);
@@ -71,6 +83,18 @@ end
 
 % VISUALIZE OBJECT
 fig2 = figure('Color','w');
-imagesc(xa,ya,OBJECT');
+a = imagesc(xa,ya,OBJECT');
+a = get(a,'Parent');
+set(a,'FontSize',10);
+T = [-0.5 : 0.25 : +0.5];
+L = {};
+for n = 1 : length(T)
+    L{n} = num2str(T(n),'%1.2f');
+end
+L{3} = 0;
+set(a,'XTick',T,'XTickLabel',L,'YTick',T,'YTickLabel',L);
 colormap('gray');
 axis equal tight
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+title('OBJECT','FontSize',14,'FontWeight','Bold');
