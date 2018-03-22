@@ -136,7 +136,7 @@ colormap('gray');
 axis equal tight
 xlabel('x','FontSize',12);
 ylabel('y','FontSize',12,'Rotation',0);
-title('OBJECT + 2*ECLK','FontSize',14,'FontWeight','Bold');
+title('OBJECT + 2*EOBJ','FontSize',14,'FontWeight','Bold');
 colorbar;
 
 figure('Color','w');
@@ -162,7 +162,7 @@ colorbar;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % FORCE MAP
-F = ECLK + EOBJ;
+F = ECLK | EOBJ;
 
 % GENERATE INITIAL BOUNDARY VALUES
 XA = X.*F;
@@ -245,3 +245,242 @@ xlabel('x','FontSize',12);
 ylabel('y','FontSize',12,'Rotation',0);
 title('YF','FontSize',14,'FontWeight','Bold');
 colorbar;
+
+figure('Color','w');
+a = imagesc(xa,ya,F');
+a = get(a,'Parent');
+set(a,'FontSize',10);
+T = [-0.5 : 0.25 : +0.5];
+L = {};
+for n = 1 : length(T)
+    L{n} = num2str(T(n),'%1.2f');
+end
+L{3} = 0;
+set(a,'XTick',T,'XTickLabel',L,'YTick',T,'YTickLabel',L);
+colormap('gray');
+axis equal tight
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+title('FORCE MAP','FontSize',14,'FontWeight','Bold');
+colorbar;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% PROBLEM #4 -- CALCULATE COORDINATES BY SOLVING LAPLACE’S EQUATION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% CALCULATE DERIVATICE MATRICES
+NS = [Nx Ny];
+RES = [dx dy];
+BC = [1 1];
+[DX,D2X,DY,D2Y] = fdder(NS,RES,BC);
+
+% BUILD L MATRIX
+F = diag(sparse(F(:)));
+I = speye(Nx*Ny);
+L = D2X + D2Y;
+L = F + (I - F)*L;
+
+% REDUCE PROBLEM
+M = ECLK | (CLOAK & ~OBJECT) | EOBJ;
+ind = find(M(:));
+L = L(ind,ind);
+XF = XF(ind);
+YF = YF(ind);
+
+% SOLVE LAPLACE'S EQUATIONS FOR X-VALUES
+u = L\XF;
+
+% REINSERT INTO GRID
+XB = zeros(Nx,Ny);
+XB(ind) = u;
+
+% SOLVE LAPLACE'S EQUATIONS FOR Y-VALUES
+u = L\YF;
+
+% REINSERT INTO GRID
+YB = zeros(Nx,Ny);
+YB(ind) = u;
+
+% VISUALIZE
+figure('Color','w');
+subplot(121);
+a = imagesc(xa,ya,XB');
+a = get(a,'Parent');
+set(a,'FontSize',10);
+T = [-0.5 : 0.25 : +0.5];
+L = {};
+for n = 1 : length(T)
+    L{n} = num2str(T(n),'%1.2f');
+end
+L{3} = 0;
+set(a,'XTick',T,'XTickLabel',L,'YTick',T,'YTickLabel',L);
+colormap('hot');
+axis equal tight
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+title('XB','FontSize',14,'FontWeight','Bold');
+colorbar;
+
+subplot(122);
+a = imagesc(xa,ya,YB');
+a = get(a,'Parent');
+set(a,'FontSize',10);
+T = [-0.5 : 0.25 : +0.5];
+L = {};
+for n = 1 : length(T)
+    L{n} = num2str(T(n),'%1.2f');
+end
+L{3} = 0;
+set(a,'XTick',T,'XTickLabel',L,'YTick',T,'YTickLabel',L);
+colormap('hot');
+axis equal tight
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+title('YB','FontSize',14,'FontWeight','Bold');
+colorbar;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% PROBLEM #5 -- CALCULATE PERMITTIVITY TENSOR
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% INITIALIZE TENSORS
+ERxx = ones(Nx,Ny);
+ERxy = zeros(Nx,Ny);
+ERxz = ERxy;
+ERyx = ERxy;
+ERyy = ERxx;
+ERyz = ERxy;
+ERzx = ERxy;
+ERzy = ERxy;
+ERzz = ERxx;
+
+% CALCULATE DERIVATIVES OF TRANSFORMED GRID
+Dxx = reshape(DX*XB(:),Nx,Ny);
+Dxy = reshape(DY*XB(:),Nx,Ny);
+Dyx = reshape(DX*YB(:),Nx,Ny);
+Dyy = reshape(DY*YB(:),Nx,Ny);
+M = (CLOAK & ~OBJECT);
+
+% BUILD ER
+for ny = 1:Ny
+    for nx = 1:Nx
+        if M(nx,ny)
+            % BUILD BACKGROUND TENSOR
+            ER = [ERxx(nx,ny) ERxy(nx,ny) ERxz(nx,ny);
+                ERyx(nx,ny) ERyy(nx,ny) ERyz(nx,ny);
+                ERzx(nx,ny) ERzy(nx,ny) ERzz(nx,ny)];
+            
+            % BUILD JACOBIAN MATRIX
+            J = [Dxx(nx,ny) Dxy(nx,ny) 0;
+                Dyx(nx,ny) Dyy(nx,ny) 0;
+                0          0      1];
+            
+            % TRANSFORM ER
+            J = inv(J);
+            ER = J*ER*J.'/det(J);
+            
+            % POPULATE TENSORS
+            ERxx(nx,ny) = ER(1,1);
+            ERxy(nx,ny) = ER(1,2);
+            ERxz(nx,ny) = ER(1,3);
+            ERyx(nx,ny) = ER(2,1);
+            ERyy(nx,ny) = ER(2,2);
+            ERyz(nx,ny) = ER(2,3);
+            ERzx(nx,ny) = ER(3,1);
+            ERzy(nx,ny) = ER(3,2);
+            ERzz(nx,ny) = ER(3,3);
+        end
+    end
+end
+
+% VISUALIZE
+figure('Color','w');
+subplot(331);
+imagesc(xa,ya,ERxx');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+title('ERxx','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(332);
+imagesc(xa,ya,ERxy');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+title('ERxy','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(333);
+imagesc(xa,ya,ERxz');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+title('ERxz','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(334);
+imagesc(xa,ya,ERyx');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+title('ERyx','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(335);
+imagesc(xa,ya,ERyy');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+title('ERyy','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(336);
+imagesc(xa,ya,ERyz');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+title('ERyz','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(337);
+imagesc(xa,ya,ERzx');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+title('ERzx','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(338);
+imagesc(xa,ya,ERzy');
+colorbar;
+caxis([-10 10]);
+axis equal tight;
+axis off;
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
+
+subplot(339);
+imagesc(xa,ya,ERzz');
+colormap('hot');
+colorbar;
+caxis([-5 5]);
+axis equal tight;
+axis off;
+title('ERzz','FontSize',12);
+xlabel('x','FontSize',12);
+ylabel('y','FontSize',12,'Rotation',0);
